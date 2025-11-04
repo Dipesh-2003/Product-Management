@@ -1,0 +1,294 @@
+package com.example.geminieclipse.views;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.IJobChangeEvent;
+import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.core.runtime.jobs.JobChangeAdapter;
+import org.eclipse.jface.text.BadLocationException;
+import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.text.TextSelection;
+import org.eclipse.jface.viewers.ISelection;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Text;
+import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.part.ViewPart;
+import org.eclipse.ui.texteditor.ITextEditor;
+
+public class SampleView extends ViewPart {
+
+	// UI Widgets
+	private Text promptInput;
+	private Text responseOutput;
+	private Button sendButton;
+	private Button useSelectionButton;
+	private Button useFileButton;
+	private Button applyChangesButton;
+	private Button stopButton; // The new Stop button
+
+	// State Management
+	private Job geminiJob; // Holds the reference to the running API call job
+	private TextSelection lastActiveSelection;
+
+	@Override
+	public void createPartControl(Composite parent) {
+		GridLayout layout = new GridLayout(3, false);
+		parent.setLayout(layout);
+
+		new Label(parent, SWT.NONE).setText("Your Prompt:");
+		GridData spanAllColumns = new GridData(GridData.FILL, GridData.FILL, true, true);
+		spanAllColumns.horizontalSpan = 3;
+
+		promptInput = new Text(parent, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
+		promptInput.setLayoutData(spanAllColumns);
+		promptInput.setSize(1, 100); // Set initial height
+
+		// --- Row of Action Buttons ---
+		sendButton = new Button(parent, SWT.PUSH);
+		sendButton.setText("Send to Gemini");
+		sendButton.setLayoutData(new GridData(GridData.FILL, GridData.CENTER, true, false));
+
+		useSelectionButton = new Button(parent, SWT.PUSH);
+		useSelectionButton.setText("Use Selected Code");
+		useSelectionButton.setLayoutData(new GridData(GridData.FILL, GridData.CENTER, true, false));
+
+		useFileButton = new Button(parent, SWT.PUSH);
+		useFileButton.setText("Use Active File");
+		useFileButton.setLayoutData(new GridData(GridData.FILL, GridData.CENTER, true, false));
+
+		new Label(parent, SWT.NONE).setText("Gemini's Response:");
+		
+		responseOutput = new Text(parent, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL | SWT.READ_ONLY);
+		GridData responseData = new GridData(GridData.FILL, GridData.FILL, true, true);
+		responseData.horizontalSpan = 3;
+		responseData.heightHint = 300;
+		responseOutput.setLayoutData(responseData);
+		
+		// --- Row of Post-Action Buttons ---
+		applyChangesButton = new Button(parent, SWT.PUSH);
+		applyChangesButton.setText("Apply Changes to Editor");
+		GridData applyButtonData = new GridData(GridData.BEGINNING, GridData.CENTER, false, false);
+		applyButtonData.horizontalSpan = 2; // Span 2 of 3 columns
+		applyChangesButton.setLayoutData(applyButtonData);
+
+		stopButton = new Button(parent, SWT.PUSH);
+		stopButton.setText("Stop Request");
+		stopButton.setLayoutData(new GridData(GridData.FILL, GridData.CENTER, true, false));
+		
+		// --- Listeners for all buttons ---
+		sendButton.addListener(SWT.Selection, event -> onSendToGemini(promptInput.getText()));
+		useSelectionButton.addListener(SWT.Selection, event -> onUseSelection());
+		useFileButton.addListener(SWT.Selection, event -> onUseActiveFile());
+		applyChangesButton.addListener(SWT.Selection, event -> onApplyChanges());
+		stopButton.addListener(SWT.Selection, event -> onStopRequest());
+		
+		// Set the initial state of the buttons
+		setUIState(false);
+	}
+	
+	/**
+	 * Manages the enabled/disabled state of the UI buttons.
+	 * @param isRunning True if an API call is in progress, false otherwise.
+	 */
+	private void setUIState(boolean isRunning) {
+		sendButton.setEnabled(!isRunning);
+		useSelectionButton.setEnabled(!isRunning);
+		useFileButton.setEnabled(!isRunning);
+		stopButton.setEnabled(isRunning);
+		
+		// Only enable apply if not running, and a successful response for a selection is present
+		boolean canApply = !isRunning && applyChangesButton.getData("canApply") == Boolean.TRUE;
+		applyChangesButton.setEnabled(canApply);
+	}
+	
+	// --- Button Action Handlers ---
+
+	private void onSendToGemini(String prompt) {
+		if (prompt != null && !prompt.trim().isEmpty()) {
+			setUIState(true);
+			responseOutput.setText("Thinking...");
+			callGeminiAPI(prompt);
+		} else {
+			responseOutput.setText("Please enter a prompt.");
+		}
+	}
+	
+	private void onUseSelection() {
+		ITextEditor editor = getActiveTextEditor();
+		if (editor != null) {
+			ISelection selection = editor.getSelectionProvider().getSelection();
+			if (selection instanceof TextSelection && !selection.isEmpty()) {
+				this.lastActiveSelection = (TextSelection) selection;
+				String selectedText = this.lastActiveSelection.getText();
+				String userPrompt = promptInput.getText();
+				String fullPrompt = userPrompt + "\n\n---\nCode to process:\n" + selectedText;
+				promptInput.setText(fullPrompt);
+				onSendToGemini(fullPrompt);
+			} else {
+				responseOutput.setText("Please select some text in a code editor first.");
+			}
+		} else {
+			responseOutput.setText("No active text editor found.");
+		}
+	}
+
+	private void onUseActiveFile() {
+		ITextEditor editor = getActiveTextEditor();
+		if (editor != null) {
+			this.lastActiveSelection = null; // Applying changes doesn't make sense for a whole file replace
+			IDocument document = editor.getDocumentProvider().getDocument(editor.getEditorInput());
+			String fileContent = document.get();
+			String userPrompt = promptInput.getText();
+			String fullPrompt = userPrompt + "\n\n---\nFull file content:\n" + fileContent;
+			promptInput.setText(fullPrompt);
+			onSendToGemini(fullPrompt);
+		} else {
+			responseOutput.setText("No active text editor found.");
+		}
+	}
+
+	private void onApplyChanges() {
+		ITextEditor editor = getActiveTextEditor();
+		String newText = responseOutput.getText();
+
+		if (editor != null && lastActiveSelection != null && newText != null && !newText.startsWith("Error:")) {
+			IDocument document = editor.getDocumentProvider().getDocument(editor.getEditorInput());
+			try {
+				document.replace(lastActiveSelection.getOffset(), lastActiveSelection.getLength(), newText);
+			} catch (BadLocationException e) {
+				e.printStackTrace();
+				responseOutput.setText("Error applying changes: " + e.getMessage());
+			}
+		} else {
+			responseOutput.setText("Cannot apply changes. Ensure an editor is active and a valid response is available.");
+		}
+	}
+	
+	private void onStopRequest() {
+		if (geminiJob != null) {
+			geminiJob.cancel(); // Request the job to cancel
+		}
+	}
+
+	// --- Core API Logic ---
+	
+	private void callGeminiAPI(String prompt) {
+		// ---- TODO: IMPORTANT! Replace with your NEW, SECRET Gemini API Key ----
+		final String API_KEY = "YAIzaSyD6zb264tlxTjTvswFQvNz1RbMGl_L2_NA";
+		final String MODEL_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=" + API_KEY;
+		String sanitizedPrompt = prompt.replace("\\", "\\\\").replace("\"", "\\\"");
+
+		geminiJob = new Job("Calling Gemini API") {
+			protected IStatus run(IProgressMonitor monitor) {
+				// Check for cancellation before starting
+				if (monitor.isCanceled()) return Status.CANCEL_STATUS;
+
+				try {
+					URL url = new URL(MODEL_URL);
+					HttpURLConnection con = (HttpURLConnection) url.openConnection();
+					con.setRequestMethod("POST");
+					con.setRequestProperty("Content-Type", "application/json");
+					con.setDoOutput(true);
+
+					String jsonInputString = "{\"contents\":[{\"parts\":[{\"text\":\"" + sanitizedPrompt + "\"}]}]}";
+					
+					try (OutputStream os = con.getOutputStream()) {
+						os.write(jsonInputString.getBytes("utf-8"));
+					}
+
+					// Check for cancellation after sending, before waiting for response
+					if (monitor.isCanceled()) return Status.CANCEL_STATUS;
+
+					StringBuilder response = new StringBuilder();
+					try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"))) {
+						String responseLine;
+						while ((responseLine = br.readLine()) != null) {
+							// It's hard to interrupt a blocking read, but we check just in case
+							if (monitor.isCanceled()) return Status.CANCEL_STATUS;
+							response.append(responseLine.trim());
+						}
+					}
+
+					String responseText = parseSimpleJsonResponse(response.toString());
+					updateUI(responseText, true);
+					return Status.OK_STATUS;
+				} catch (Exception e) {
+					e.printStackTrace();
+					updateUI("Error: " + e.getMessage(), false);
+					return Status.CANCEL_STATUS; // Return a cancel status on error as well
+				}
+			}
+		};
+		
+		// Add a listener to reset the UI state after the job is done (in any state)
+		geminiJob.addJobChangeListener(new JobChangeAdapter() {
+			public void done(IJobChangeEvent event) {
+				if (event.getResult().getSeverity() == IStatus.CANCEL) {
+					updateUI("Request cancelled by user.", false);
+				}
+				// Safely re-enable the UI on the UI thread
+				Display.getDefault().asyncExec(() -> setUIState(false));
+			}
+		});
+
+		geminiJob.schedule();
+	}
+	
+	// --- Helper Methods ---
+
+	private String parseSimpleJsonResponse(String jsonResponse) {
+		String searchText = "\"text\": \"";
+		int startIndex = jsonResponse.indexOf(searchText);
+		if (startIndex != -1) {
+			startIndex += searchText.length();
+			int endIndex = jsonResponse.lastIndexOf("\"");
+			if (endIndex > startIndex) {
+				return jsonResponse.substring(startIndex, endIndex).replace("\\n", "\n").replace("\\\"", "\"");
+			}
+		}
+		return "Could not parse response: " + jsonResponse;
+	}
+
+	private void updateUI(final String text, final boolean success) {
+		Display.getDefault().asyncExec(() -> {
+			if (responseOutput != null && !responseOutput.isDisposed()) {
+				responseOutput.setText(text);
+				// Set a flag to indicate if applying changes should be possible
+				applyChangesButton.setData("canApply", success && lastActiveSelection != null);
+			}
+		});
+	}
+
+	private ITextEditor getActiveTextEditor() {
+		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+		if (window != null) {
+			IWorkbenchPage page = window.getActivePage();
+			if (page != null && page.getActiveEditor() instanceof ITextEditor) {
+				return (ITextEditor) page.getActiveEditor();
+			}
+		}
+		return null;
+	}
+
+	@Override
+	public void setFocus() {
+		if (promptInput != null) {
+			promptInput.setFocus();
+		}
+	}
+}

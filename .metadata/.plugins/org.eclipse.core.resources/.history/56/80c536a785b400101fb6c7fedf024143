@@ -1,0 +1,5 @@
+package com.aurionpro.app.util;
+
+public class IdGenerator {
+
+}

@@ -1,0 +1,22 @@
+package com.aurionpro.app.repository;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.aurionpro.app.model.Product;
+
+public interface ProductRepository extends JpaRepository<Product, Long>{
+
+	Optional<Product>findByProductId(String productId);
+	 Page<Product> findByIsDeletedFalse(Pageable pageable);
+	 Page<Product> findByIsDeletedTrue(Pageable pageable);
+	 Optional<Product> findByName(String name);
+	 Page<Product> findByCategoryIdAndIsDeletedFalse(Long categoryId, Pageable pageable);	 
+	 List<Product> findByIsDeletedFalse();
+
+	 
+	 }

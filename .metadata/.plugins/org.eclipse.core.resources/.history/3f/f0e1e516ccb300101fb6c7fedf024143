@@ -1,0 +1,29 @@
+package com.aurionpro.app.controller;
+
+import com.aurionpro.app.dto.CategoryDto;
+import com.aurionpro.app.service.CategoryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/categories")
+public class CategoryController {
+
+    @Autowired
+    private CategoryService categoryService;
+
+    @PostMapping
+    public ResponseEntity<CategoryDto> createCategory(@RequestBody CategoryDto categoryDto) {
+        CategoryDto newCategory = categoryService.createCategory(categoryDto);
+        return ResponseEntity.ok(newCategory);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<CategoryDto>> getAllCategories() {
+        List<CategoryDto> categories = categoryService.getAllCategories();
+        return ResponseEntity.ok(categories);
+    }
+}

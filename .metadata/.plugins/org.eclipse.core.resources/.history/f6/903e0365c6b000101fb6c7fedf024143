@@ -1,0 +1,13 @@
+package com.aurionpro.app.dto;
+
+import ch.qos.logback.classic.spi.STEUtil;
+import lombok.Data;
+
+@Data
+public class ProductDto {
+	private Long id;
+	
+	private String productId;
+	private String name;
+	private String description;
+}

@@ -1,0 +1,63 @@
+package com.aurionpro.app.service;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.aurionpro.app.dto.ProductDto;
+import com.aurionpro.app.model.Product;
+import com.aurionpro.app.repository.ProductRepository;
+
+@Service 
+public class ProductServiceImpl implements ProductService {
+
+    @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private ModelMapper modelMapper;
+
+    @Override
+    public List<ProductDto> getAllProducts() {
+        return productRepository.findByIsDeletedFalse()
+                .stream()
+                .map(product -> modelMapper.map(product, ProductDto.class))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public ProductDto addProduct(ProductDto productDto) throws Exception {
+        if (productRepository.findByProductId(productDto.getProductId()).isPresent()) {
+            throw new Exception("Product with ID '" + productDto.getProductId() + "' already exists.");
+        }
+        Product productToSave = modelMapper.map(productDto, Product.class);
+        Product savedProduct = productRepository.save(productToSave);
+        return modelMapper.map(savedProduct, ProductDto.class);
+    }
+
+    @Override
+    public Optional<ProductDto> updateProduct(Long id, ProductDto productDetailsDto) {
+        return productRepository.findById(id).map(product -> {
+            product.setName(productDetailsDto.getName());
+            product.setDescription(productDetailsDto.getDescription());
+            Product updatedProduct = productRepository.save(product);
+            return modelMapper.map(updatedProduct, ProductDto.class);
+        });
+    }
+
+    @Override
+    public boolean softDeleteProduct(Long id) {
+        Optional<Product> productOptional = productRepository.findById(id);
+        if (productOptional.isPresent()) {
+            Product product = productOptional.get();
+            product.setDeleted(true);
+            productRepository.save(product);
+            return true;
+        }
+        return false;
+    }
+}

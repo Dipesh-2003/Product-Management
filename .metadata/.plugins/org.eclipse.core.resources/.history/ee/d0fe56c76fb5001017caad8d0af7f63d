@@ -1,0 +1,353 @@
+package com.example.geminieclipse.views;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+// NEW IMPORT for file traversal
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IResourceVisitor;
+import org.eclipse.core.runtime.CoreException;
+// END NEW IMPORT
+
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.IJobChangeEvent;
+import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.core.runtime.jobs.JobChangeAdapter;
+import org.eclipse.jface.text.BadLocationException;
+import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.text.TextSelection;
+import org.eclipse.jface.viewers.ISelection;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Text;
+import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.part.ViewPart;
+import org.eclipse.ui.texteditor.ITextEditor;
+
+public class SampleView extends ViewPart {
+
+	private Text promptInput;
+	private Text responseOutput;
+	private Button sendButton, useSelectionButton, useSmartContextButton, applyChangesButton, stopButton;
+
+	private Job geminiJob;
+	private TextSelection lastActiveSelection;
+	private volatile boolean wasCancelledByUser = false;
+
+	@Override
+	public void createPartControl(Composite parent) {
+		GridLayout layout = new GridLayout(3, false);
+		parent.setLayout(layout);
+
+		new Label(parent, SWT.NONE).setText("Your Prompt:");
+		GridData spanAllColumns = new GridData(GridData.FILL, GridData.FILL, true, true);
+		spanAllColumns.horizontalSpan = 3;
+
+		promptInput = new Text(parent, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
+		promptInput.setLayoutData(spanAllColumns);
+		promptInput.setSize(1, 100);
+
+		sendButton = new Button(parent, SWT.PUSH);
+		sendButton.setText("Send to Gemini");
+		sendButton.setLayoutData(new GridData(GridData.FILL, GridData.CENTER, true, false));
+
+		useSelectionButton = new Button(parent, SWT.PUSH);
+		useSelectionButton.setText("Use Selected Code");
+		useSelectionButton.setLayoutData(new GridData(GridData.FILL, GridData.CENTER, true, false));
+
+		useSmartContextButton = new Button(parent, SWT.PUSH);
+		useSmartContextButton.setText("Use Smart Context");
+		useSmartContextButton.setLayoutData(new GridData(GridData.FILL, GridData.CENTER, true, false));
+
+		new Label(parent, SWT.NONE).setText("Gemini's Response:");
+		
+		responseOutput = new Text(parent, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL | SWT.READ_ONLY);
+		GridData responseData = new GridData(GridData.FILL, GridData.FILL, true, true);
+		responseData.horizontalSpan = 3;
+		responseData.heightHint = 300;
+		responseOutput.setLayoutData(responseData);
+		
+		applyChangesButton = new Button(parent, SWT.PUSH);
+		applyChangesButton.setText("Apply Changes");
+		GridData applyButtonData = new GridData(GridData.BEGINNING, GridData.CENTER, false, false);
+		applyButtonData.horizontalSpan = 2;
+		applyChangesButton.setLayoutData(applyButtonData);
+
+		stopButton = new Button(parent, SWT.PUSH);
+		stopButton.setText("Stop Request");
+		stopButton.setLayoutData(new GridData(GridData.FILL, GridData.CENTER, true, false));
+		
+		sendButton.addListener(SWT.Selection, event -> onSendToGemini(promptInput.getText()));
+		useSelectionButton.addListener(SWT.Selection, event -> onUseSelection());
+		useSmartContextButton.addListener(SWT.Selection, event -> onUseSmartContext());
+		applyChangesButton.addListener(SWT.Selection, event -> onApplyChanges());
+		stopButton.addListener(SWT.Selection, event -> onStopRequest());
+		
+		setUIState(false);
+	}
+
+	private void setUIState(boolean isRunning) {
+		Display.getDefault().asyncExec(() -> {
+			sendButton.setEnabled(!isRunning);
+			useSelectionButton.setEnabled(!isRunning);
+			useSmartContextButton.setEnabled(!isRunning);
+			stopButton.setEnabled(isRunning);
+			
+			boolean canApply = !isRunning && (lastActiveSelection != null) && !responseOutput.getText().isEmpty();
+			applyChangesButton.setEnabled(canApply);
+		});
+	}
+	
+	private void onSendToGemini(String prompt) {
+		if (prompt != null && !prompt.trim().isEmpty()) {
+			wasCancelledByUser = false;
+			setUIState(true);
+			responseOutput.setText("Thinking...");
+			callGeminiAPI(prompt);
+		} else {
+			responseOutput.setText("Please enter a prompt.");
+		}
+	}
+	
+	private void onUseSelection() {
+		ITextEditor editor = getActiveTextEditor();
+		if (editor != null) {
+			ISelection selection = editor.getSelectionProvider().getSelection();
+			if (selection instanceof TextSelection && !selection.isEmpty()) {
+				this.lastActiveSelection = (TextSelection) selection;
+				String selectedText = this.lastActiveSelection.getText();
+				String userPrompt = promptInput.getText();
+				String fullPrompt = userPrompt + "\n\n---\nCode to process:\n" + selectedText;
+				promptInput.setText(fullPrompt);
+				onSendToGemini(fullPrompt);
+			} else {
+				responseOutput.setText("Please select some text in a code editor first.");
+			}
+		} else {
+			responseOutput.setText("No active text editor found.");
+		}
+	}
+
+	// ===================================================================
+	// === NEW, ADVANCED CONTEXT GATHERING LOGIC =========================
+	// ===================================================================
+	private void onUseSmartContext() {
+		ITextEditor editor = getActiveTextEditor();
+		if (editor == null) {
+			responseOutput.setText("Please open a file in a project to gather context.");
+			return;
+		}
+
+		Object editorInput = editor.getEditorInput().getAdapter(IFile.class);
+		if (!(editorInput instanceof IFile)) {
+			responseOutput.setText("Could not determine the project from the active editor.");
+			return;
+		}
+
+		IProject project = ((IFile) editorInput).getProject();
+		final StringBuilder contextBuilder = new StringBuilder();
+		
+		try {
+			project.accept(new IResourceVisitor() {
+				@Override
+				public boolean visit(IResource resource) throws CoreException {
+					if (resource.getType() == IResource.FILE) {
+						String extension = resource.getFileExtension();
+						// Only include common source and config files
+						if ("java".equals(extension) || "xml".equals(extension) || "properties".equals(extension)) {
+							IFile file = (IFile) resource;
+							try {
+								contextBuilder.append("--- File: ").append(file.getProjectRelativePath().toString()).append(" ---\n");
+								// Read file content
+								InputStream content = file.getContents();
+								try (BufferedReader reader = new BufferedReader(new InputStreamReader(content))) {
+									String line;
+									while ((line = reader.readLine()) != null) {
+										contextBuilder.append(line).append('\n');
+									}
+								}
+								contextBuilder.append("\n\n");
+							} catch (Exception e) {
+								// Ignore files that can't be read
+							}
+						}
+					}
+					return true; // Continue visiting children
+				}
+			});
+		} catch (CoreException e) {
+			e.printStackTrace();
+			responseOutput.setText("Error traversing project files: " + e.getMessage());
+			return;
+		}
+
+		// Update the selection to cover the entire active file, so it can be replaced
+		IDocument document = editor.getDocumentProvider().getDocument(editor.getEditorInput());
+		this.lastActiveSelection = new TextSelection(0, document.getLength());
+
+		String userPrompt = promptInput.getText();
+		String fullPrompt = userPrompt + "\n\n--- Full Project Context ---\n" + contextBuilder.toString();
+		promptInput.setText(fullPrompt);
+		onSendToGemini(fullPrompt);
+	}
+	// ===================================================================
+	
+	private void onApplyChanges() {
+		ITextEditor editor = getActiveTextEditor();
+		if (editor == null || lastActiveSelection == null) {
+			updateUI("Cannot apply changes. No active editor or selection found.", false);
+			return;
+		}
+		String responseText = responseOutput.getText();
+		String codeToApply = "";
+		int startIndex = responseText.indexOf("```");
+		if (startIndex != -1) {
+			int codeStartIndex = responseText.indexOf('\n', startIndex) + 1;
+			if (codeStartIndex == 0) codeStartIndex = startIndex + 3;
+			int endIndex = responseText.lastIndexOf("```");
+			if (endIndex > codeStartIndex) {
+				codeToApply = responseText.substring(codeStartIndex, endIndex).trim();
+			}
+		} else {
+			codeToApply = responseText.trim();
+		}
+		
+		if (!codeToApply.isEmpty()) {
+			IDocument document = editor.getDocumentProvider().getDocument(editor.getEditorInput());
+			try {
+				document.replace(lastActiveSelection.getOffset(), lastActiveSelection.getLength(), codeToApply);
+			} catch (BadLocationException e) {
+				e.printStackTrace();
+				updateUI("Error applying changes: " + e.getMessage(), false);
+			}
+		} else {
+			updateUI("Could not extract any code from the response to apply.", false);
+		}
+	}
+	
+	private void onStopRequest() {
+		if (geminiJob != null) {
+			wasCancelledByUser = true;
+			geminiJob.cancel();
+		}
+	}
+	
+	private void callGeminiAPI(String prompt) {
+		final String API_KEY = "YOUR_NEW_SECRET_API_KEY";
+		final String MODEL_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + API_KEY;
+		String sanitizedPrompt = prompt.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "\\r").replace("\n", "\\n").replace("\t", "\\t");
+		geminiJob = new Job("Calling Gemini API") {
+			protected IStatus run(IProgressMonitor monitor) {
+				HttpURLConnection con = null;
+				try {
+					if (monitor.isCanceled()) return Status.CANCEL_STATUS;
+					URL url = new URL(MODEL_URL);
+					con = (HttpURLConnection) url.openConnection();
+					con.setRequestMethod("POST");
+					con.setRequestProperty("Content-Type", "application/json");
+					con.setDoOutput(true);
+					String jsonInputString = "{\"contents\":[{\"parts\":[{\"text\":\"" + sanitizedPrompt + "\"}]}]}";
+					try (OutputStream os = con.getOutputStream()) {
+						os.write(jsonInputString.getBytes("utf-8"));
+					}
+					if (monitor.isCanceled()) return Status.CANCEL_STATUS;
+					int responseCode = con.getResponseCode();
+					if (responseCode != HttpURLConnection.HTTP_OK) {
+						String errorDetails = readStream(con.getErrorStream());
+						updateUI("Error: HTTP " + responseCode + "\n" + errorDetails, false);
+						return Status.CANCEL_STATUS;
+					}
+					String responseText = parseSimpleJsonResponse(readStream(con.getInputStream()));
+					updateUI(responseText, true);
+					return Status.OK_STATUS;
+				} catch (Exception e) {
+					if (!wasCancelledByUser) {
+						e.printStackTrace();
+						updateUI("Error: " + e.getMessage(), false);
+					}
+					return Status.CANCEL_STATUS;
+				} finally {
+					if (con != null) con.disconnect();
+				}
+			}
+		};
+		geminiJob.addJobChangeListener(new JobChangeAdapter() {
+			public void done(IJobChangeEvent event) {
+				if (wasCancelledByUser) {
+					updateUI("Request cancelled by user.", false);
+				}
+				setUIState(false);
+			}
+		});
+		geminiJob.schedule();
+	}
+	
+	private String readStream(InputStream stream) {
+		if (stream == null) return "No details available.";
+		StringBuilder sb = new StringBuilder();
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "utf-8"))) {
+			String line;
+			while ((line = reader.readLine()) != null) {
+				sb.append(line).append("\n");
+			}
+		} catch (java.io.IOException e) {
+			return "Could not read error stream.";
+		}
+		return sb.toString();
+	}
+
+	private String parseSimpleJsonResponse(String jsonResponse) {
+	    String searchText = "\"text\": \"";
+	    int startIndex = jsonResponse.indexOf(searchText);
+	    if (startIndex != -1) {
+	        startIndex += searchText.length();
+	        int endIndex = jsonResponse.lastIndexOf("\"");
+	        if (endIndex > startIndex) {
+	            String text = jsonResponse.substring(startIndex, endIndex);
+	            return text.replace("\\n", "\n").replace("\\r", "\r").replace("\\t", "\t").replace("\\\"", "\"");
+	        }
+	    }
+	    return "Could not parse response: " + jsonResponse;
+	}
+
+	private void updateUI(final String text, final boolean success) {
+		Display.getDefault().asyncExec(() -> {
+			if (responseOutput != null && !responseOutput.isDisposed()) {
+				responseOutput.setText(text);
+			}
+		});
+	}
+
+	private ITextEditor getActiveTextEditor() {
+		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+		if (window != null) {
+			IWorkbenchPage page = window.getActivePage();
+			if (page != null && page.getActiveEditor() instanceof ITextEditor) {
+				return (ITextEditor) page.getActiveEditor();
+			}
+		}
+		return null;
+	}
+
+	@Override
+	public void setFocus() {
+		if (promptInput != null) {
+			promptInput.setFocus();
+		}
+	}
+}

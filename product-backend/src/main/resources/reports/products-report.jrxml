@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="ProductsReport" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20"
+              uuid="c1b4b8f0-1e1e-4c2b-9c7b-7b7e3e7f9d1c">
+
+    <!-- Define the fields from your ProductDto -->
+    <field name="productId" class="java.lang.String"/>
+    <field name="name" class="java.lang.String"/>
+    <field name="description" class="java.lang.String"/>
+    <field name="categoryId" class="java.lang.Long"/>
+
+    <!-- Title Band -->
+    <title>
+        <band height="50">
+            <staticText>
+                <reportElement x="0" y="0" width="555" height="40" forecolor="#0066CC" uuid="a1b2c3d4-e5f6-7890-1234-56789abcdef0"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font size="24" isBold="true"/>
+                </textElement>
+                <text><![CDATA[Active Product List]]></text>
+            </staticText>
+        </band>
+    </title>
+
+    <!-- Column Header Band -->
+    <columnHeader>
+        <band height="25">
+            <staticText>
+                <reportElement mode="Opaque" x="0" y="0" width="130" height="25" forecolor="#FFFFFF" backcolor="#006699" uuid="b1c2d3e4-f5a6-b7c8-d9e0-f1a2b3c4d5e6"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font size="12" isBold="true"/>
+                </textElement>
+                <text><![CDATA[Product ID]]></text>
+            </staticText>
+            <staticText>
+                <reportElement mode="Opaque" x="130" y="0" width="140" height="25" forecolor="#FFFFFF" backcolor="#006699" uuid="c2d3e4f5-a6b7-c8d9-e0f1-a2b3c4d5e6f7"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font size="12" isBold="true"/>
+                </textElement>
+                <text><![CDATA[Name]]></text>
+            </staticText>
+            <staticText>
+                <reportElement mode="Opaque" x="270" y="0" width="200" height="25" forecolor="#FFFFFF" backcolor="#006699" uuid="d3e4f5a6-b7c8-d9e0-f1a2-b3c4d5e6f7a8"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font size="12" isBold="true"/>
+                </textElement>
+                <text><![CDATA[Description]]></text>
+            </staticText>
+            <staticText>
+                <reportElement mode="Opaque" x="470" y="0" width="85" height="25" forecolor="#FFFFFF" backcolor="#006699" uuid="e4f5a6b7-c8d9-e0f1-a2b3-c4d5e6f7a8b9"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font size="12" isBold="true"/>
+                </textElement>
+                <text><![CDATA[Category ID]]></text>
+            </staticText>
+        </band>
+    </columnHeader>
+
+    <!-- Detail Band (this part repeats for each product) -->
+    <detail>
+        <band height="20">
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="0" width="130" height="20" uuid="f5a6b7c8-d9e0-f1a2-b3c4-d5e6f7a8b9c0"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"/>
+                <textFieldExpression><![CDATA[$F{productId}]]></textFieldExpression>
+            </textField>
+            <textField isStretchWithOverflow="true">
+                <reportElement x="130" y="0" width="140" height="20" uuid="a6b7c8d9-e0f1-a2b3-c4d5-e6f7a8b9c0d1"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"/>
+                <textFieldExpression><![CDATA[$F{name}]]></textFieldExpression>
+            </textField>
+            <textField isStretchWithOverflow="true">
+                <reportElement x="270" y="0" width="200" height="20" uuid="b7c8d9e0-f1a2-b3c4-d5e6-f7a8b9c0d1e2"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"/>
+                <textFieldExpression><![CDATA[$F{description}]]></textFieldExpression>
+            </textField>
+            <textField isStretchWithOverflow="true">
+                <reportElement x="470" y="0" width="85" height="20" uuid="c8d9e0f1-a2b3-c4d5-e6f7-a8b9c0d1e2f3"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"/>
+                <textFieldExpression><![CDATA[$F{categoryId} != null ? $F{categoryId} : "N/A"]]></textFieldExpression>
+            </textField>
+        </band>
+    </detail>
+</jasperReport>

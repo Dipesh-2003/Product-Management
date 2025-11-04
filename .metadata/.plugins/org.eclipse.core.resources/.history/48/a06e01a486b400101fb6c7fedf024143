@@ -1,0 +1,22 @@
+package com.aurionpro.app.util;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.UUID;
+
+public class IdGenerator {
+
+    /**
+     * Example format: PRD-20231028-A4C8
+     */
+    public static String generateProductId() {
+        //getting the current date in a compact format  YYYYMMDD
+        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+        //generate a random unique part using uuid and trim some part
+        String randomPart = UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+
+        // 3. Combine the parts into the final ID
+        return "PRD-" + datePart + "-" + randomPart;
+    }
+}

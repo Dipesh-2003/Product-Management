@@ -1,0 +1,139 @@
+package com.aurionpro.app.service;
+
+
+import java.util.Optional;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
+import com.aurionpro.app.dto.ProductDto;
+import com.aurionpro.app.model.Category;
+import com.aurionpro.app.model.Product;
+import com.aurionpro.app.repository.CategoryRepository;
+import com.aurionpro.app.repository.ProductRepository;
+import lombok.extern.slf4j.Slf4j;
+
+
+@Service 
+@Slf4j
+public class ProductServiceImpl implements ProductService {
+
+    @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private CategoryRepository categoryRepository;
+
+    @Autowired
+    private ModelMapper modelMapper;
+
+    @Override
+    public Page<ProductDto> getAllProducts(int page, int size) {
+        log.info("Fetching active products from database. Page: {}, Size: {}", page, size);
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Product> productPage = productRepository.findByIsDeletedFalse(pageable);
+        return productPage.map(product -> modelMapper.map(product, ProductDto.class));
+    }
+
+    @Override
+    public ProductDto addProduct(ProductDto productDto) throws Exception {
+    	log.info("addiing the product :{}",productDto.getProductId());
+        if (productRepository.findByProductId(productDto.getProductId()).isPresent()) {
+        	log.warn("duplicate product id found {}",productDto.getProductId());
+            throw new Exception("Product ID '" + productDto.getProductId() + "' already exists.");
+        }
+        try {
+            if (productRepository.findByName(productDto.getName()).isPresent()) {
+            	log.warn("Duplicate Product Name found: {}", productDto.getName());
+                throw new Exception("Duplicate name is not allowed. The name '" + productDto.getName() + "' is already in use.");
+            }
+        } catch (IncorrectResultSizeDataAccessException e) {
+        	log.error("Database inconsistency: Multiple products found with the same name '{}'", productDto.getName(), e);
+            throw new Exception("Duplicate name is not allowed. The name '" + productDto.getName() + "' is already in use.");
+        }
+        
+        try {
+            Product productToSave = modelMapper.map(productDto, Product.class);
+            
+            if (productDto.getCategoryId() != null) {
+                Category category = categoryRepository.findById(productDto.getCategoryId())
+                        .orElseThrow(() -> new Exception("Category not found with id: " + productDto.getCategoryId()));
+                productToSave.setCategory(category);
+            }
+
+            Product savedProduct = productRepository.save(productToSave);
+            log.info("Product saved successfully with internal ID: {}", savedProduct.getId());
+            return modelMapper.map(savedProduct, ProductDto.class);
+            
+        } catch (DataIntegrityViolationException e) {
+            throw new Exception("Failed to save product. The name or product ID might already exist.");
+        }
+    }
+
+    @Override
+    public Optional<ProductDto> updateProduct(Long id, ProductDto productDetailsDto) throws Exception {
+        Optional<Product> existingProductWithName = productRepository.findByName(productDetailsDto.getName());
+        if (existingProductWithName.isPresent() && !existingProductWithName.get().getId().equals(id)) {
+            throw new Exception("Another product with the name '" + productDetailsDto.getName() + "' already exists.");
+        }
+
+        return productRepository.findById(id).map(product -> {
+            product.setName(productDetailsDto.getName());
+            product.setDescription(productDetailsDto.getDescription());
+            if (productDetailsDto.getCategoryId() != null) {
+                Category category = categoryRepository.findById(productDetailsDto.getCategoryId())
+                        .orElseThrow(() -> new RuntimeException("Category not found"));
+                product.setCategory(category);
+            }
+            Product updatedProduct = productRepository.save(product);
+            return modelMapper.map(updatedProduct, ProductDto.class);
+        });
+    }
+
+    @Override
+    public boolean softDeleteProduct(Long id) {
+        Optional<Product> productOptional = productRepository.findById(id);
+        if (productOptional.isPresent()) {
+            Product product = productOptional.get();
+            product.setDeleted(true);
+            productRepository.save(product);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public Page<ProductDto> getInactiveProducts(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Product> productPage = productRepository.findByIsDeletedTrue(pageable);
+        return productPage.map(product -> modelMapper.map(product, ProductDto.class));
+    }
+
+    @Override
+    public boolean restoreProduct(Long id) {
+        Optional<Product> productOptional = productRepository.findById(id);
+        if (productOptional.isPresent()) {
+            Product product = productOptional.get();
+            product.setDeleted(false); 
+            productRepository.save(product);
+            return true;
+        }
+        return false;
+    }
+    @Override
+    public Optional<ProductDto> getProductById(Long id) {
+        return productRepository.findById(id)
+                .map(product -> modelMapper.map(product, ProductDto.class));
+    }
+
+    @Override
+    public void permanentDeleteProduct(Long id) {
+        productRepository.deleteById(id);
+    }
+}

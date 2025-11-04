@@ -1,0 +1,5 @@
+package com.aurionpro.app.repository;
+
+public class ProductRepository {
+
+}

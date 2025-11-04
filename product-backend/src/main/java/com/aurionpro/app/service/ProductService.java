@@ -1,0 +1,30 @@
+package com.aurionpro.app.service;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.domain.Page;
+
+import com.aurionpro.app.dto.ProductDto;
+
+public interface ProductService {
+
+	Page<ProductDto> getAllProducts(int page, int size);
+    ProductDto addProduct(ProductDto productDto) throws Exception;
+
+    Optional<ProductDto> updateProduct(Long id, ProductDto productDetailsDto) throws Exception;
+
+    boolean softDeleteProduct(Long id);
+    Page<ProductDto> getInactiveProducts(int page, int size);
+    boolean restoreProduct(Long id);
+    void permanentDeleteProduct(Long id);
+    Optional<ProductDto> getProductById(Long id);
+    Page<ProductDto> getProductsByCategory(Long categoryId, int page, int size);
+    
+    boolean existsByProductId(String productId);
+    boolean existsByName(String name, Long excludeId);
+    
+    List<ProductDto> getAllActiveProducts();
+
+    
+}

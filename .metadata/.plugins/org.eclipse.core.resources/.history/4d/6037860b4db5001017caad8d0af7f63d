@@ -1,0 +1,209 @@
+package com.example.geminieclipse.views;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.jface.text.TextSelection;
+import org.eclipse.jface.viewers.ISelection;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Text;
+import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.part.ViewPart;
+import org.eclipse.ui.texteditor.ITextEditor;
+
+/**
+ * This is the main view for the Gemini integration plugin.
+ * It provides a UI for sending prompts and viewing responses.
+ */
+public class SampleView extends ViewPart {
+
+	private Text promptInput;
+	private Text responseOutput;
+
+	/**
+	 * This is the primary method for creating the UI of the view.
+	 */
+	@Override
+	public void createPartControl(Composite parent) {
+		GridLayout layout = new GridLayout(2, false);
+		parent.setLayout(layout);
+
+		new Label(parent, SWT.NONE).setText("Your Prompt:");
+
+		promptInput = new Text(parent, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
+		GridData promptData = new GridData(GridData.FILL, GridData.FILL, true, true);
+		promptData.horizontalSpan = 2;
+		promptData.heightHint = 100;
+		promptInput.setLayoutData(promptData);
+
+		Button sendButton = new Button(parent, SWT.PUSH);
+		sendButton.setText("Send to Gemini");
+		GridData buttonData = new GridData(GridData.BEGINNING, GridData.CENTER, false, false);
+		buttonData.horizontalSpan = 1;
+		sendButton.setLayoutData(buttonData);
+
+		Button processCodeButton = new Button(parent, SWT.PUSH);
+		processCodeButton.setText("Use Selected Code in Prompt");
+		GridData processButtonData = new GridData(GridData.BEGINNING, GridData.CENTER, false, false);
+		processButtonData.horizontalSpan = 1;
+		processCodeButton.setLayoutData(processButtonData);
+
+		new Label(parent, SWT.NONE).setText("Gemini's Response:");
+
+		responseOutput = new Text(parent, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL | SWT.READ_ONLY);
+		GridData responseData = new GridData(GridData.FILL, GridData.FILL, true, true);
+		responseData.horizontalSpan = 2;
+		responseData.heightHint = 300;
+		responseOutput.setLayoutData(responseData);
+
+		// Listener for the "Send" button
+		sendButton.addListener(SWT.Selection, event -> {
+			String prompt = promptInput.getText();
+			if (prompt != null && !prompt.trim().isEmpty()) {
+				responseOutput.setText("Thinking...");
+				callGeminiAPI(prompt);
+			} else {
+				responseOutput.setText("Please enter a prompt.");
+			}
+		});
+
+		// Listener for the "Use Selected Code" button
+		processCodeButton.addListener(SWT.Selection, event -> {
+			ITextEditor editor = getActiveTextEditor();
+			if (editor != null) {
+				ISelection selection = editor.getSelectionProvider().getSelection();
+				if (selection instanceof TextSelection) {
+					TextSelection textSelection = (TextSelection) selection;
+					String selectedText = textSelection.getText();
+					String userPrompt = promptInput.getText();
+
+					String fullPrompt = userPrompt + "\n\n---\nCode to process:\n" + selectedText;
+					promptInput.setText(fullPrompt);
+
+					responseOutput.setText("Sending prompt with selected code...");
+					callGeminiAPI(fullPrompt);
+				} else {
+					responseOutput.setText("Please select some text in a code editor first.");
+				}
+			} else {
+				responseOutput.setText("No active text editor found.");
+			}
+		});
+	}
+
+	/**
+	 * Calls the Gemini API in a background thread to avoid freezing the UI.
+	 * @param prompt The text to send to the Gemini API.
+	 */
+	private void callGeminiAPI(String prompt) {
+		// ---- TODO: IMPORTANT! Replace with your actual Gemini API Key ----
+		final String API_KEY = "AIzaSyD6zb264tlxTjTvswFQvNz1RbMGl_L2_NA"; // <-- PUT YOUR NEW KEY HERE
+
+		// --- UPDATED MODEL URL TO USE GEMINI 2.5 PRO ---
+		final String MODEL_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=" + API_KEY;
+		String sanitizedPrompt = prompt.replace("\\", "\\\\").replace("\"", "\\\"");
+
+		Job job = new Job("Calling Gemini API") {
+			protected IStatus run(IProgressMonitor monitor) {
+				try {
+					URL url = new URL(MODEL_URL);
+					HttpURLConnection con = (HttpURLConnection) url.openConnection();
+					con.setRequestMethod("POST");
+					con.setRequestProperty("Content-Type", "application/json");
+					con.setDoOutput(true);
+
+					String jsonInputString = "{\"contents\":[{\"parts\":[{\"text\":\"" + sanitizedPrompt + "\"}]}]}";
+
+					try (OutputStream os = con.getOutputStream()) {
+						byte[] input = jsonInputString.getBytes("utf-8");
+						os.write(input, 0, input.length);
+					}
+
+					StringBuilder response = new StringBuilder();
+					try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"))) {
+						String responseLine = null;
+						while ((responseLine = br.readLine()) != null) {
+							response.append(responseLine.trim());
+						}
+					}
+
+					String responseText = parseSimpleJsonResponse(response.toString());
+					updateUI(responseText);
+
+					return Status.OK_STATUS;
+				} catch (Exception e) {
+					e.printStackTrace();
+					updateUI("Error: " + e.getMessage() + "\n\n(Have you set your API Key correctly?)");
+					return Status.CANCEL_STATUS;
+				}
+			}
+		};
+		job.schedule();
+	}
+
+	/**
+	 * A very basic method to extract the generated text from Gemini's JSON response.
+	 */
+	private String parseSimpleJsonResponse(String jsonResponse) {
+		String searchText = "\"text\": \"";
+		int startIndex = jsonResponse.indexOf(searchText);
+		if (startIndex != -1) {
+			startIndex += searchText.length();
+			int endIndex = jsonResponse.lastIndexOf("\"");
+			if (endIndex > startIndex) {
+				return jsonResponse.substring(startIndex, endIndex).replace("\\n", "\n");
+			}
+		}
+		return "Could not parse response: " + jsonResponse;
+	}
+
+	/**
+	 * Helper method to safely update the UI from a background thread.
+	 */
+	private void updateUI(final String text) {
+		Display.getDefault().asyncExec(() -> {
+			if (responseOutput != null && !responseOutput.isDisposed()) {
+				responseOutput.setText(text);
+			}
+		});
+	}
+
+	/**
+	 * Finds and returns the currently active text editor in the workbench.
+	 */
+	private ITextEditor getActiveTextEditor() {
+		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+		if (window != null) {
+			IWorkbenchPage page = window.getActivePage();
+			if (page != null && page.getActiveEditor() instanceof ITextEditor) {
+				return (ITextEditor) page.getActiveEditor();
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Sets the focus to the prompt input widget when the view becomes active.
+	 */
+	@Override
+	public void setFocus() {
+		if (promptInput != null) {
+			promptInput.setFocus();
+		}
+	}
+}

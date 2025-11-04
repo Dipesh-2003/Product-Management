@@ -1,0 +1,155 @@
+package com.aurionpro.app.controller;
+
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.aurionpro.app.dto.ProductDto;
+import com.aurionpro.app.service.ProductService;
+import com.aurionpro.app.validation.OnCreate;
+import com.aurionpro.app.validation.OnUpdate;
+
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
+
+@Tag(name = "products api",description = "api for managing products")
+@RestController
+@RequestMapping("/api/products")
+@CrossOrigin(origins = "http://localhost:4200")
+@Slf4j
+public class ProductController {
+
+    @Autowired
+    private ProductService productService;
+
+    @GetMapping
+    public Page<ProductDto> getAllProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+    	
+    	log.info("Request received to fetch all active products. Page: {}, Size: {}", page, size);
+        return productService.getAllProducts(page, size);
+    }
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductDto> getProductById(@PathVariable Long id) {
+    	   log.info("Request received to fetch product by ID: {}", id);
+        return productService.getProductById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @ApiResponses(value = {
+    		@ApiResponse(responseCode = "200",description = "products created sucessfully"),
+    		@ApiResponse(responseCode = "404",description = "INVALID REQ ,duplicate products")
+    })
+    @PostMapping
+    public ResponseEntity<?> addProduct(@Validated(OnCreate.class) @RequestBody ProductDto productDto) {
+    	log.info("Request received to add a new product: {}", productDto);
+        try {
+            ProductDto newProduct = productService.addProduct(productDto);
+            log.info("Successfully added new product with ID: {}", newProduct.getId());
+            return ResponseEntity.ok(newProduct);
+        } catch (Exception e) {
+        	 log.error("Error adding product: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+    
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Product updated successfully"),
+            @ApiResponse(responseCode = "404", description = "Product not found with the given ID")
+        })
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateProduct(@PathVariable Long id, @Validated(OnUpdate.class) @RequestBody ProductDto productDetailsDto) {
+        try {
+            Optional<ProductDto> updatedProduct = productService.updateProduct(id, productDetailsDto);
+            return updatedProduct
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Product DEACTIVATED"),
+            @ApiResponse(responseCode = "404", description = "Product not found with the given ID")
+        })
+    @DeleteMapping("/{id}/soft")
+    public ResponseEntity<Void> softDeleteProduct(@PathVariable Long id) {
+        log.info("Request received to deactivate product with ID: {}", id);
+
+        boolean isDeleted = productService.softDeleteProduct(id);
+        if (isDeleted) {
+            log.info("Product with ID {} deactivated successfully.", id);
+
+            return ResponseEntity.ok().build();
+        } else {
+            log.warn("Failed to deactivate product. No product found with ID: {}", id);
+
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/inactive")
+    public Page<ProductDto> getInactiveProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+    	log.info("fetching inactive products. Page: {} size:{}", page,size);
+        return productService.getInactiveProducts(page, size);
+    }
+
+    @PutMapping("/{id}/restore")
+    public ResponseEntity<Void> restoreProduct(@PathVariable Long id) {
+    	log.info("request received to restore product with id :{}",id);
+        boolean isRestored = productService.restoreProduct(id);
+        if (isRestored) {
+        	log.info("product with id {} restored sucessfully",id);
+            return ResponseEntity.ok().build();
+        } else {
+        	log.warn("falied to  restore products , no inactive products found with id: {}",id);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @DeleteMapping("/{id}/permanent")
+    public ResponseEntity<Void> permanentDeleteProduct(@PathVariable Long id) {
+    	log.warn("CRITICAL!! request received to delete the product permantely with id: {}",id);
+        productService.permanentDeleteProduct(id);
+        log.info("product with id {} has been deleted permanently",id);
+        return ResponseEntity.ok().build();
+    }
+    
+    @GetMapping("/by-category/{categoryId}")
+    public Page<ProductDto> getProductsByCategory(
+            @PathVariable Long categoryId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+        return productService.getProductsByCategory(categoryId, page, size);
+    }
+    
+    @GetMapping("/exists/by-id/{productId}")
+    public ResponseEntity<Boolean> checkProductIdExists(@PathVariable String productId) {
+        return ResponseEntity.ok(productService.existsByProductId(productId));
+    }
+
+    @GetMapping("/exists/by-name")
+    public ResponseEntity<Boolean> checkNameExists(@RequestParam String name, @RequestParam(required = false) Long excludeId) {
+        return ResponseEntity.ok(productService.existsByName(name, excludeId));
+    }
+}

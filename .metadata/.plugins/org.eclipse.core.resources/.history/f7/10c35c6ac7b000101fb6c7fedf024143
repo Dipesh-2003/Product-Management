@@ -1,0 +1,5 @@
+package com.aurionpro.app.exception;
+
+public class GlobalExceptionHandler {
+
+}

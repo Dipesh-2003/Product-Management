@@ -1,0 +1,64 @@
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Text;
+import org.eclipse.ui.part.ViewPart;
+
+public class SampleView extends ViewPart {
+
+    private Text promptInput;
+    private Text responseOutput;
+
+    @Override
+    public void createPartControl(Composite parent) {
+        // Use a GridLayout to arrange controls in columns
+        GridLayout layout = new GridLayout(2, false);
+        parent.setLayout(layout);
+
+        // Label for the prompt input
+        new Label(parent, SWT.NONE).setText("Your Prompt:");
+
+        // Text field for user to type their prompt
+        promptInput = new Text(parent, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
+        GridData promptData = new GridData(GridData.FILL, GridData.FILL, true, true);
+        promptData.horizontalSpan = 2;
+        promptData.heightHint = 100; // Set initial height
+        promptInput.setLayoutData(promptData);
+
+        // "Send" button
+        Button sendButton = new Button(parent, SWT.PUSH);
+        sendButton.setText("Send to Gemini");
+        GridData buttonData = new GridData();
+        buttonData.horizontalSpan = 2;
+        sendButton.setLayoutData(buttonData);
+
+        // Label for the response output
+        new Label(parent, SWT.NONE).setText("Gemini's Response:");
+
+        // Read-only text area for the response
+        responseOutput = new Text(parent, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL | SWT.READ_ONLY);
+        GridData responseData = new GridData(GridData.FILL, GridData.FILL, true, true);
+        responseData.horizontalSpan = 2;
+        responseData.heightHint = 300; // Set initial height
+        responseOutput.setLayoutData(responseData);
+
+        // ---- Add button listener to trigger the API call ----
+        sendButton.addListener(SWT.Selection, event -> {
+            String prompt = promptInput.getText();
+            if (prompt != null && !prompt.trim().isEmpty()) {
+                // In the next step, we will call the Gemini API here
+                responseOutput.setText("Sending prompt to Gemini: " + prompt);
+            } else {
+                responseOutput.setText("Please enter a prompt.");
+            }
+        });
+    }
+
+    @Override
+    public void setFocus() {
+        promptInput.setFocus();
+    }
+}

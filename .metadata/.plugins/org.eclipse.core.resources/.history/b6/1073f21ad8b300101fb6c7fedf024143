@@ -1,0 +1,9 @@
+package com.aurionpro.app.service;
+
+import com.aurionpro.app.dto.CategoryDto;
+import java.util.List;
+
+public interface CategoryService {
+    CategoryDto createCategory(CategoryDto categoryDto);
+    List<CategoryDto> getAllCategories();
+}

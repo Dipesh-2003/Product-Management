@@ -1,0 +1,3 @@
+2025-11-04T09:16:31.869+05:30  WARN 7184 --- [product-backend] [HikariPool-1:housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=16h16m18s788ms967µs600ns).
+2025-11-04T09:29:57.762+05:30  WARN 7184 --- [product-backend] [HikariPool-1:housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=5m58s4ms56µs400ns).
+2025-11-04T10:10:53.640+05:30  WARN 7184 --- [product-backend] [HikariPool-1:housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=34m55s824ms107µs401ns).

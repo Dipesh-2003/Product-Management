@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<item key="osgiProject" value="false"/>
+	<item key="automaticMetadata" value="false"/>
+	<item key="frameworkType" value="Equinox"/>
+	<item key="generatePluginActivator" value="true"/>
+	<item key="uiPlugin" value="false"/>
+	<item key="apiAnalysis" value="false"/>
+	<item key="rcpPlugin" value="false"/>
+	<list key="providers">
+		<item value="EXAMPLE"/>
+	</list>
+	<section name="NewPluginTemplateChoiceWizard.dialogBounds">
+		<item key="DIALOG_X_ORIGIN" value="0"/>
+		<item key="DIALOG_Y_ORIGIN" value="0"/>
+		<item key="DIALOG_WIDTH" value="875"/>
+		<item key="DIALOG_HEIGHT" value="1047"/>
+		<item key="DIALOG_FONT_NAME" value="1|Segoe UI|9.0|0|WINDOWS|1|-18|0|0|0|400|0|0|0|1|0|0|0|0|Segoe UI"/>
+	</section>
+	<section name="quick_assist_proposal_size">
+	</section>
+	<section name="PDEFormActionManager">
+		<list key="RecentLaunches">
+			<item value="org.eclipse.pde.ui.runtimeWorkbenchShortcut"/>
+		</list>
+	</section>
+	<section name="org.eclipse.pde.ui.dialogs.PluginSelectionDialog">
+		<item key="ShowStatusLine" value="true"/>
+		<item key="History" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&#x0D;&#x0A;&lt;History/&gt;"/>
+		<section name="DialogBoundsSettings">
+			<item key="DIALOG_HEIGHT" value="500"/>
+			<item key="DIALOG_WIDTH" value="600"/>
+			<item key="DIALOG_X_ORIGIN" value="671"/>
+			<item key="DIALOG_Y_ORIGIN" value="242"/>
+			<item key="DIALOG_FONT_NAME" value="1|Segoe UI|9.0|0|WINDOWS|1|-18|0|0|0|400|0|0|0|1|0|0|0|0|Segoe UI"/>
+		</section>
+	</section>
+	<section name="UpdateBuildpathWizard">
+		<section name="UpdateBuildpathWizard.dialogBounds">
+			<item key="DIALOG_X_ORIGIN" value="534"/>
+			<item key="DIALOG_Y_ORIGIN" value="103"/>
+			<item key="DIALOG_WIDTH" value="875"/>
+			<item key="DIALOG_HEIGHT" value="708"/>
+			<item key="DIALOG_FONT_NAME" value="1|Segoe UI|9.0|0|WINDOWS|1|-18|0|0|0|400|0|0|0|1|0|0|0|0|Segoe UI"/>
+		</section>
+	</section>
+	<section name="PluginExportWizard">
+		<item key="exportType" value="1"/>
+		<item key="destination0" value="D:\Softwares\imp_jars"/>
+		<item key="destination1" value="D:\Softwares\imp_jars"/>
+		<item key="exportUpdate" value="true"/>
+		<item key="exportSource" value="false"/>
+		<item key="exportSourceFormat" value="Generate source bundles"/>
+		<item key="saveAsAnt" value="false"/>
+		<item key="qualifier" value="false"/>
+		<item key="qualifierName" value="202510301504"/>
+		<item key="allowBinaryCycles" value="true"/>
+		<item key="useWorkspaceCompiledClasses" value="false"/>
+		<item key="signJAR" value="false"/>
+		<section name="PluginExportWizard.dialogBounds">
+			<item key="DIALOG_X_ORIGIN" value="534"/>
+			<item key="DIALOG_Y_ORIGIN" value="153"/>
+			<item key="DIALOG_WIDTH" value="931"/>
+			<item key="DIALOG_HEIGHT" value="842"/>
+			<item key="DIALOG_FONT_NAME" value="1|Segoe UI|9.0|0|WINDOWS|1|-18|0|0|0|400|0|0|0|1|0|0|0|0|Segoe UI"/>
+		</section>
+	</section>
+</section>
