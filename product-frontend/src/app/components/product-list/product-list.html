@@ -1,0 +1,141 @@
+<div class="list-container fade-in">
+    <div class="list-header">
+        <h2><i class="fa-solid fa-box-archive"></i> Product List</h2>
+
+        <div class="header-actions" style="display: flex; align-items: center; gap: 12px;">
+            
+            <!-- Dropdown Container -->
+            <div class="dropdown">
+                <!-- Main Dropdown Button -->
+                <button (click)="toggleDropdown()" class="btn btn-secondary">
+                    <i class="fa-solid fa-download"></i> Download
+                    <i class="fa-solid fa-caret-down" style="font-size: 12px; margin-left: 4px;"></i>
+                </button>
+
+                <!-- Dropdown Menu -->
+                <div *ngIf="isDropdownOpen" class="dropdown-menu fade-in">
+                    <button (click)="downloadPdf()" class="dropdown-item">
+                        <i class="fa-solid fa-file-pdf"></i> Download as PDF (.pdf)
+                    </button>
+                    <button (click)="downloadExcel()" class="dropdown-item">
+                        <i class="fa-solid fa-file-excel"></i> Download as Excel (.xlsx)
+                    </button>
+                    <button (click)="downloadCsv()" class="dropdown-item">
+                        <i class="fa-solid fa-file-csv"></i> Download as CSV (.csv)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Add New Product Button -->
+            <a routerLink="/add-product" class="btn btn-primary">
+                <i class="fa-solid fa-plus"></i> Add New Product
+            </a>
+        </div>
+    </div>
+
+
+    <!-- Product Status Tabs -->
+    <div class="tabs">
+        <button class="tab-button" 
+                [class.active]="productStatusTab === 'active'" 
+                (click)="selectStatusTab('active')">
+            Active
+        </button>
+        <button class="tab-button" 
+                [class.active]="productStatusTab === 'inactive'" 
+                (click)="selectStatusTab('inactive')">
+            Inactive
+        </button>
+    </div>
+
+    <div *ngIf="productStatusTab === 'active'" class="tabs category-tabs">
+        <button class="tab-button"
+                [class.active]="selectedCategoryId === 'all'"
+                (click)="selectCategory('all')">
+            All Categories
+        </button>
+        <button *ngFor="let category of categories"
+                class="tab-button"
+                [class.active]="selectedCategoryId === category.id"
+                (click)="selectCategory(category.id)">
+            {{ category.name }}
+        </button>
+    </div>
+
+    <!-- Active Products View -->
+    <div *ngIf="productStatusTab === 'active'">
+        <div *ngIf="products.length > 0; else noActiveProducts">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product ID</th>
+                        <th>Name</th>
+                        <th>Category</th> 
+                        <th>Description</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let product of products">
+                        <td>{{ product.productId }}</td>
+                        <td>{{ product.name }}</td>
+                        <td>{{ getCategoryName(product.categoryId) }}</td> 
+                        <td>{{ product.description || 'No description' }}</td>
+                        <td class="actions">
+                            <a [routerLink]="['/edit-product', product.id]" class="btn btn-edit"><i class="fa-solid fa-pencil"></i> Edit</a>
+                            <button (click)="deactivateProduct(product.id)" class="btn btn-secondary"><i class="fa-solid fa-minus-circle"></i> Deactivate</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <ng-template #noActiveProducts>
+            <div class="empty-state">
+                <p>No active products found for this category.</p>
+            </div>
+        </ng-template>
+    </div>
+
+    <div *ngIf="productStatusTab === 'inactive'">
+        <div *ngIf="products.length > 0; else noInactiveProducts">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product ID</th>
+                        <th>Name</th>
+                        <th>Category</th> 
+                        <th>Description</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let product of products">
+                        <td>{{ product.productId }}</td>
+                        <td>{{ product.name }}</td>
+                        <td>{{ getCategoryName(product.categoryId) }}</td> 
+                        <td>{{ product.description || 'No description' }}</td>
+                        <td class="actions">
+                            <button (click)="restoreProduct(product.id)" class="btn btn-primary"><i class="fa-solid fa-rotate-left"></i> Restore</button>
+                            <button (click)="permanentDeleteProduct(product.id)" class="btn btn-delete"><i class="fa-solid fa-trash-can"></i> Delete Permanently</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <ng-template #noInactiveProducts>
+            <div class="empty-state">
+                <p>No inactive products found.</p>
+            </div>
+        </ng-template>
+    </div>
+    
+    <div class="pagination-controls" *ngIf="totalPages > 1">
+        <button (click)="previousPage()" [disabled]="currentPage === 0" class="btn">
+            <i class="fa-solid fa-arrow-left"></i> Previous
+        </button>
+        <span class="page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+        <button (click)="nextPage()" [disabled]="currentPage >= totalPages - 1" class="btn">
+            Next <i class="fa-solid fa-arrow-right"></i>
+        </button>
+    </div>
+</div>

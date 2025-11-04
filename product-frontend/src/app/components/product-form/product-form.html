@@ -1,0 +1,59 @@
+<div class="form-container fade-in">
+  <h2 style="margin-bottom: 30px;">
+    <i class="fa-solid {{ isEditMode ? 'fa-pencil-alt' : 'fa-plus-circle' }}"></i>
+    {{ isEditMode ? ' Edit Product' : ' Add New Product' }}
+  </h2>
+
+  <form [formGroup]="productForm" (ngSubmit)="onSubmit()">
+
+<div class="form-group" *ngIf="isEditMode">
+  <label>Product ID (Cannot be changed)</label>
+  <input [value]="productForm.get('productId')?.value" disabled>
+</div>
+
+    <!-- Product Name Field -->
+    <div class="form-group">
+      <label for="name">Product Name *</label>
+      <input id="name" formControlName="name" placeholder="Enter product name">
+      <div *ngIf="productForm.get('name')?.invalid && productForm.get('name')?.touched" class="error">
+        <div *ngIf="productForm.get('name')?.errors?.['required']">Product name is required.</div>
+        <div *ngIf="productForm.get('name')?.errors?.['nameExists']">This Product Name is already in use.</div>
+      </div>
+    </div>
+
+    <!-- Category Dropdown -->
+    <div class="form-group">
+      <label for="category">Category *</label>
+      <select id="category" formControlName="categoryId">
+        <option [ngValue]="null" disabled>Select a category</option>
+        <option *ngFor="let category of categories" [ngValue]="category.id">
+          {{ category.name }}
+        </option>
+      </select>
+      <div *ngIf="productForm.get('categoryId')?.invalid && productForm.get('categoryId')?.touched" class="error">
+        Please select a category.
+      </div>
+    </div>
+
+    <!-- Description Field -->
+    <div class="form-group">
+      <label for="description">Description</label>
+      <textarea id="description" formControlName="description" rows="4" placeholder="Enter product description (optional)"></textarea>
+    </div>
+
+    <!-- Error Message Display -->
+    <div *ngIf="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
+
+    <!-- Form Actions -->
+    <div class="form-actions">
+      <button type="submit" [disabled]="productForm.invalid" class="btn btn-primary">
+        <i class="fa-solid fa-save"></i> {{ isEditMode ? 'Update Product' : 'Save Product' }}
+      </button>
+      <a routerLink="/products" class="btn btn-secondary">
+        <i class="fa-solid fa-times"></i> Cancel
+      </a>
+    </div>
+  </form>
+</div>

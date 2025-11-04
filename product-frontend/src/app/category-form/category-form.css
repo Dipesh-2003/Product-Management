@@ -1,0 +1,14 @@
+.category-add-form {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.category-add-form .form-group {
+  flex-grow: 1;
+  margin-bottom: 0;
+}
+
+.category-add-form button {
+  margin-top: 29px; /* Aligns button with the input field */
+}

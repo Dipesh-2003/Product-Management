@@ -1,0 +1,60 @@
+<div class="list-container fade-in">
+  <div class="list-header">
+    <h2><i class="fa-solid fa-tags"></i> Manage Categories</h2>
+  </div>
+
+  <!-- Dynamic Add/Edit Form -->
+  <div class="form-container" style="padding: 0; box-shadow: none;">
+    <form [formGroup]="categoryForm" (ngSubmit)="onSubmit()" class="category-add-form">
+      <div class="form-group">
+        <label for="name">{{ isEditMode ? 'Edit Category Name *' : 'New Category Name *' }}</label>
+        <input id="name" formControlName="name" placeholder="e.g., Books, Clothing">
+        <div *ngIf="categoryForm.get('name')?.invalid && categoryForm.get('name')?.touched" class="error">
+          Category name is required.
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top: 29px;">
+        <button type="submit" [disabled]="categoryForm.invalid" class="btn btn-primary">
+          <i class="fa-solid {{ isEditMode ? 'fa-save' : 'fa-plus' }}"></i> {{ isEditMode ? 'Update Category' : 'Add Category' }}
+        </button>
+        <button type="button" *ngIf="isEditMode" (click)="cancelEdit()" class="btn btn-secondary">
+          <i class="fa-solid fa-times"></i> Cancel
+        </button>
+      </div>
+    </form>
+    <div *ngIf="errorMessage" class="error-message" style="margin-top: 16px;">
+      {{ errorMessage }}
+    </div>
+  </div>
+
+  <!-- Existing Categories List -->
+  <div class="list-header" style="margin-top: 40px;">
+    <h3>Existing Categories</h3>
+  </div>
+  <div *ngIf="categories.length > 0; else noCategories">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let category of categories">
+          <td>{{ category.id }}</td>
+          <td>{{ category.name }}</td>
+          <td class="actions">
+            <button (click)="startEdit(category)" class="btn btn-edit"><i class="fa-solid fa-pencil"></i> Edit</button>
+            <button (click)="deleteCategory(category.id)" class="btn btn-delete"><i class="fa-solid fa-trash-can"></i> Delete</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <ng-template #noCategories>
+    <div class="empty-state">
+      <p>No categories found. Add one using the form above!</p>
+    </div>
+  </ng-template>
+</div>

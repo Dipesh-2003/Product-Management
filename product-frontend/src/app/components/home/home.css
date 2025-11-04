@@ -1,0 +1,73 @@
+.home-container {
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+.hero-section {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.hero-section h1 {
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: var(--text-primary-color);
+  margin-bottom: 12px;
+}
+
+.hero-section p {
+  font-size: 1.15rem;
+  color: var(--text-secondary-color);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.action-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.action-card {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 24px;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: var(--box-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.action-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--box-shadow-hover);
+}
+
+.card-icon {
+  font-size: 2.5rem;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary-color);
+  margin-bottom: 8px;
+}
+
+.card-description {
+  font-size: 1rem;
+  color: var(--text-secondary-color);
+  margin-bottom: 24px;
+  flex-grow: 1; /* Pushes the link to the bottom */
+}
+
+.card-link {
+  font-weight: 600;
+  color: var(--primary-color);
+  align-self: flex-start; 
+}
+
